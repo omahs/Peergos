@@ -6,23 +6,25 @@ import peergos.shared.corenode.UserPublicKeyLink;
 import peergos.shared.crypto.hash.PublicKeyHash;
 import peergos.shared.io.ipfs.multibase.Multibase;
 import peergos.shared.user.NativeJSPkiCache;
+import peergos.shared.util.Futures;
 
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class JSPkiCache implements PkiCache {
 
-    private final NativeJSPkiCache cache = new NativeJSPkiCache();
+    //private final NativeJSPkiCache cache = new NativeJSPkiCache();
+    private HashMap<String, List<String>> cache = new HashMap<>();
+    private HashMap<String, String> pkiOwnerToUsername = new HashMap<>();
 
     public JSPkiCache() {
-        cache.init();
+
+        //cache.init();
     }
 
     @Override
     public CompletableFuture<List<UserPublicKeyLink>> getChain(String username) {
-        return cache.getChain(username).thenApply(serialisedUserPublicKeyLinks -> {
+        return getChainInternal(username).thenApply(serialisedUserPublicKeyLinks -> {
             if (serialisedUserPublicKeyLinks.isEmpty())
                 throw new RuntimeException("Client Offline!");
             List<UserPublicKeyLink> list = new ArrayList();
@@ -41,12 +43,12 @@ public class JSPkiCache implements PkiCache {
         }
         PublicKeyHash owner = chain.get(chain.size() - 1).owner;
         String serialisedOwner = new String(Base64.getEncoder().encode(owner.serialize()));
-        return cache.setChain(username, serialisedUserPublicKeyLinks, serialisedOwner);
+        return setChainInternal(username, serialisedUserPublicKeyLinks, serialisedOwner);
     }
 
     @Override
     public CompletableFuture<String> getUsername(PublicKeyHash key) {
-        return cache.getUsername(new String(Base64.getEncoder().encode(key.serialize()))).thenApply(username -> {
+        return getUsername(new String(Base64.getEncoder().encode(key.serialize()))).thenApply(username -> {
            if (username.isEmpty()) {
                throw new RuntimeException("Client Offline!");
            }
@@ -54,4 +56,27 @@ public class JSPkiCache implements PkiCache {
         });
     }
 
+    public CompletableFuture<Boolean> setChainInternal(String username, String[] serialisedUserPublicKeyLinkChain, String serialisedOwner)
+    {
+        cache.put(username, List.of(serialisedUserPublicKeyLinkChain));
+        pkiOwnerToUsername.put(serialisedOwner, username);
+        return Futures.of(true);
+    }
+    public CompletableFuture<List<String>> getChainInternal(String username)
+    {
+        List<String> res = cache.get(username);
+        if (res == null) {
+            return Futures.of(Collections.emptyList());
+        } else {
+            return Futures.of(res);
+        }
+    }
+    public CompletableFuture<String> getUsername(String serialisedPublicKeyHash) {
+        String res = pkiOwnerToUsername.get(serialisedPublicKeyHash);
+        if (res == null) {
+            return Futures.of("");
+        } else {
+            return Futures.of(res);
+        }
+    }
 }

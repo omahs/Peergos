@@ -1,8 +1,10 @@
 package peergos.shared;
+import java.net.URL;
 import java.util.function.*;
 import java.util.logging.*;
 
 import jsinterop.annotations.*;
+import peergos.server.util.JavaPoster;
 import peergos.shared.cbor.*;
 import peergos.shared.corenode.*;
 import peergos.shared.crypto.*;
@@ -214,10 +216,10 @@ public class NetworkAccess {
     }
 
     @JsMethod
-    public static CompletableFuture<NetworkAccess> buildJS(boolean isPublic,
+    public static CompletableFuture<NetworkAccess> buildJS(URL url, boolean isPublic,
                                                            int cacheSizeKiB,
                                                            boolean allowOfflineLogin) {
-        JavaScriptPoster relative = new JavaScriptPoster(false, isPublic);
+        JavaPoster relative = new JavaPoster(url, isPublic);
         ScryptJS hasher = new ScryptJS();
         boolean isPeergosServer = true; // we used to support using web ui through an ipfs gateway directly
         ContentAddressedStorage localDht = buildLocalDht(relative, isPeergosServer, hasher);
@@ -342,6 +344,21 @@ public class NetworkAccess {
                 new HttpInstanceAdmin(apiPoster), httpUsage, serverMessager, hasher, usernames, isJavascript);
     }
 
+    public NetworkAccess buildBufferedNetworkAccess(int mutableCacheTime, boolean isJavascript) {
+        return build(this.dhtClient,
+                this.batCave,
+                this.coreNode,
+                this.account,
+                this.mutable,
+                mutableCacheTime,
+                this.social,
+                this.instanceAdmin,
+                this.spaceUsage,
+                this.serverMessager,
+                this.hasher,
+                this.usernames,
+                isJavascript);
+    }
     private static NetworkAccess build(ContentAddressedStorage dht,
                                        BatCave batCave,
                                        CoreNode coreNode,

@@ -339,7 +339,50 @@ public class PeergosNetworkUtils {
         //assertTrue(files.size() == 5);
 
     }
+/////////////
+public static void kevTest(NetworkAccess sharerNode, NetworkAccess shareeNode, int shareeCount, Random random) throws Exception {
+    Assert.assertTrue(0 < shareeCount);
+    //sign up a user on sharerNode
 
+    String sharerUsername = generateUsername(random);
+    String sharerPassword = generatePassword();
+    UserContext sharerUser = ensureSignedUp(sharerUsername, sharerPassword, sharerNode.clear(), crypto);
+
+    //sign up some users on shareeNode
+    List<String> shareePasswords = IntStream.range(0, shareeCount)
+            .mapToObj(i -> generatePassword())
+            .collect(Collectors.toList());
+    List<UserContext> shareeUsers = getUserContextsForNode(shareeNode, random, shareeCount, shareePasswords);
+
+    // friend sharer with others
+    friendBetweenGroups(Arrays.asList(sharerUser), shareeUsers);
+
+    // upload a file to "a"'s space
+    FileWrapper u1Root = sharerUser.getUserRoot().join();
+    String filename = "somefile.txt";
+    byte[] originalFileContents = "Hello!".getBytes();
+    AsyncReader resetableFileInputStream = AsyncReader.build(originalFileContents);
+    FileWrapper uploaded = u1Root.uploadOrReplaceFile(filename, resetableFileInputStream, originalFileContents.length,
+            sharerUser.network, crypto, l -> {}).join();
+
+    // share the file from sharer to each of the sharees
+    String filePath = sharerUser.username + "/" + filename;
+    FileWrapper u1File = sharerUser.getByPath(filePath).join().get();
+    byte[] originalStreamSecret = u1File.getFileProperties().streamSecret.get();
+    sharerUser.shareWriteAccessWith(PathUtil.get(sharerUser.username, filename), shareeUsers.stream().map(u -> u.username).collect(Collectors.toSet())).join();
+
+    // check other users can read the file
+    for (UserContext userContext : shareeUsers) {
+        Optional<FileWrapper> sharedFile = userContext.getByPath(filePath).join();
+        Assert.assertTrue("shared file present", sharedFile.isPresent());
+        Assert.assertTrue("File is writable", sharedFile.get().isWritable());
+        checkFileContents(originalFileContents, sharedFile.get(), userContext);
+        System.out.println("in here");
+    }
+}
+
+
+/////////////
     public static void grantAndRevokeFileWriteAccess(NetworkAccess sharerNode, NetworkAccess shareeNode, int shareeCount, Random random) throws Exception {
         Assert.assertTrue(0 < shareeCount);
         //sign up a user on sharerNode

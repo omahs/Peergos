@@ -42,9 +42,10 @@ public class MultiUserTests {
         this.userCount = 2;
         WriteSynchronizer synchronizer = new WriteSynchronizer(service.mutable, service.storage, crypto.hasher);
         MutableTree mutableTree = new MutableTreeImpl(service.mutable, service.storage, crypto.hasher, synchronizer);
-        this.network = new NetworkAccess(service.coreNode, service.account, service.social, new CachingStorage(service.storage, 1_000, 50 * 1024),
+        NetworkAccess tempNetwork = new NetworkAccess(service.coreNode, service.account, service.social, new CachingStorage(service.storage, 1_000, 50 * 1024),
                 service.bats, Optional.empty(), service.mutable, mutableTree, synchronizer, service.controller, service.usage, service.serverMessages,
                 crypto.hasher, Arrays.asList("peergos"), false);
+        network =  tempNetwork.buildBufferedNetworkAccess(7_000, false);
     }
 
     @BeforeClass
@@ -133,6 +134,11 @@ public class MultiUserTests {
     @Test
     public void grantAndRevokeFileWriteAccess() throws Exception {
         PeergosNetworkUtils.grantAndRevokeFileWriteAccess(network, network, userCount, random);
+    }
+
+    @Test
+    public void kevTest() throws Exception {
+        PeergosNetworkUtils.kevTest(network, network, 1, random);
     }
 
     @Test
